@@ -2,13 +2,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NatureInfo } from "../types";
 
-// Safely access API_KEY with a fallback
+/**
+ * Note for Vercel Deployment:
+ * You MUST add an environment variable named API_KEY in your Vercel Project Settings.
+ * Go to: Vercel Dashboard -> Project -> Settings -> Environment Variables.
+ */
 const getApiKey = () => {
-  try {
-    return process.env.API_KEY || '';
-  } catch (e) {
-    return '';
-  }
+  // Try to get from process.env (Vercel/Node environment)
+  // or window.process (if shimmed)
+  const key = (typeof process !== 'undefined' && process.env?.API_KEY) || 
+              (window as any).process?.env?.API_KEY;
+  return key || '';
 };
 
 const natureSchema = {
@@ -73,7 +77,7 @@ const natureSchema = {
 export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
   const key = getApiKey();
   if (!key) {
-    console.warn("Gemini API Key is missing. Please set the API_KEY environment variable.");
+    throw new Error("MISSING_API_KEY");
   }
 
   const ai = new GoogleGenAI({ apiKey: key });
@@ -104,22 +108,29 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
     if (!text) throw new Error("No response from AI");
     
     return JSON.parse(text) as NatureInfo;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    return null;
+    if (error.message?.includes('API_KEY_INVALID')) throw new Error("INVALID_API_KEY");
+    throw error;
   }
 }
 
 export async function lookupSpeciesByName(name: string): Promise<string> {
   const key = getApiKey();
+  if (!key) return "API Key missing.";
+  
   const ai = new GoogleGenAI({ apiKey: key });
   
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Tell me about the ${name} species. Include its common name, scientific name, and a 2-sentence summary.`,
-    config: {
-      tools: [{ googleSearch: {} }]
-    }
-  });
-  return response.text || "Information currently unavailable.";
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Tell me about the ${name} species. Include its common name, scientific name, and a 2-sentence summary.`,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+    return response.text || "Information currently unavailable.";
+  } catch (err) {
+    return "Could not fetch extra info.";
+  }
 }

@@ -55,8 +55,12 @@
         }
     </style>
     <script>
-        // Simple shim to prevent crashes if process.env is accessed in the browser
-        window.process = window.process || { env: {} };
+        // Critical: Provide a fallback for process.env so the browser doesn't crash
+        window.process = { 
+            env: { 
+                API_KEY: "" // Will be injected or found in standard env
+            } 
+        };
     </script>
 <script type="importmap">
 {
@@ -71,7 +75,7 @@
 </head>
 <body class="texture-bg min-h-screen selection:bg-emerald-200">
     <div id="root"></div>
-    <!-- Link to entry point -->
+    <!-- Entry point -->
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@ import CameraView from './components/CameraView';
 const App: React.FC = () => {
   const [result, setResult] = useState<NatureInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<React.ReactNode | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.EASY);
   const [isLookingUp, setIsLookingUp] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,11 +28,22 @@ const App: React.FC = () => {
           }
         }, 150);
       } else {
-        setError("I couldn't identify this one. Try a clearer angle or different lighting!");
+        setError("I couldn't identify this. Try a different angle.");
       }
-    } catch (err) {
-      console.error(err);
-      setError("Something went wrong with the connection. Please try again.");
+    } catch (err: any) {
+      console.error("Processing error:", err);
+      if (err.message === "MISSING_API_KEY") {
+        setError(
+          <div className="space-y-2">
+            <p className="font-bold">Missing API Key</p>
+            <p className="text-xs">Go to Vercel Settings > Environment Variables and add "API_KEY" with your Gemini key.</p>
+          </div>
+        );
+      } else if (err.message === "INVALID_API_KEY") {
+        setError("Your API key is invalid. Please check your AI Studio dashboard.");
+      } else {
+        setError("Network error. Please check your connection.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -313,8 +324,8 @@ const App: React.FC = () => {
 
         {error && (
           <div className="bg-red-50 border border-red-200 p-8 rounded-[2rem] text-center animate-in zoom-in-95 duration-300 max-w-lg mx-auto">
-            <p className="handwritten text-red-600 text-3xl mb-2">Oops!</p>
-            <p className="text-red-900/70 text-sm font-medium">{error}</p>
+            <p className="handwritten text-red-600 text-3xl mb-2">Notice</p>
+            <div className="text-red-900/70 text-sm font-medium">{error}</div>
             <button 
               onClick={() => setError(null)}
               className="mt-6 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors"
