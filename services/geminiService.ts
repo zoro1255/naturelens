@@ -2,18 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NatureInfo } from "../types";
 
-/**
- * Note for Vercel Deployment:
- * You MUST add an environment variable named API_KEY in your Vercel Project Settings.
- */
-const getApiKey = () => {
-  // Defensive check for various deployment environments
-  const key = (typeof process !== 'undefined' && process.env?.API_KEY) || 
-              (window as any).process?.env?.API_KEY || 
-              "";
-  return key;
-};
-
 const natureSchema = {
   type: Type.OBJECT,
   properties: {
@@ -74,12 +62,8 @@ const natureSchema = {
 };
 
 export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
-  const key = getApiKey();
-  if (!key) {
-    throw new Error("MISSING_API_KEY");
-  }
-
-  const ai = new GoogleGenAI({ apiKey: key });
+  // Always initialize with process.env.API_KEY directly as per requirements
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
   try {
     const response = await ai.models.generateContent({
@@ -87,7 +71,7 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
       contents: [
         {
           parts: [
-            { text: "Identify the species in this image. Provide a scientific analysis using the provided JSON schema. If it is a fish, include the aquaticInfo field." },
+            { text: "Identify the species in this image. Provide a detailed scientific analysis using the provided JSON schema. If it is a fish, include the aquaticInfo field." },
             {
               inlineData: {
                 mimeType: 'image/jpeg',
@@ -104,32 +88,29 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
     });
 
     const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    if (!text) throw new Error("EMPTY_RESPONSE");
     
     return JSON.parse(text) as NatureInfo;
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    if (error.message?.includes('API_KEY_INVALID')) throw new Error("INVALID_API_KEY");
+    console.error("Gemini API Identification Error:", error);
     throw error;
   }
 }
 
 export async function lookupSpeciesByName(name: string): Promise<string> {
-  const key = getApiKey();
-  if (!key) return "API Key missing.";
-  
-  const ai = new GoogleGenAI({ apiKey: key });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Quick summary of the ${name} species. Common name, scientific name, and 2 key facts.`,
+      contents: `Provide a quick summary of the '${name}' species. Include common name, scientific name, and 2 unique biological facts.`,
       config: {
         tools: [{ googleSearch: {} }]
       }
     });
-    return response.text || "Information currently unavailable.";
+    return response.text || "Details are currently unavailable.";
   } catch (err) {
-    return "Could not fetch extra information.";
+    console.error("Gemini API Lookup Error:", err);
+    return "Could not retrieve additional species information at this time.";
   }
 }
