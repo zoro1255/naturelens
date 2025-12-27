@@ -18,8 +18,11 @@ const App: React.FC = () => {
       const data = await identifySpecies(base64);
       setResult(data);
       setTimeout(() => {
-        document.getElementById('result-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        document.getElementById('result-heading')?.focus();
+        const element = document.getElementById('result-heading');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          element.focus();
+        }
       }, 150);
     } catch (error) {
       console.error(error);
@@ -62,7 +65,6 @@ const App: React.FC = () => {
         aria-labelledby="result-heading"
         className="mt-12 glass rounded-[3rem] p-8 md:p-12 shadow-2xl border border-white/60 animate-in fade-in slide-in-from-bottom-8 duration-700 relative overflow-hidden"
       >
-        {/* Decorative elements to make it feel like a journal */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/30 rounded-full blur-3xl -mr-10 -mt-10" />
         
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 relative z-10">
@@ -239,7 +241,7 @@ const App: React.FC = () => {
                   )}
                 </div>
                 <h4 className="text-xl font-bold mb-1 font-serif">{species.name}</h4>
-                <p className="text-[11px] italic opacity-50 mb-4 group-hover:opacity-70">{species.scientificName}</p}
+                <p className="text-[11px] italic opacity-50 mb-4 group-hover:opacity-70">{species.scientificName}</p>
                 <p className="text-xs leading-relaxed opacity-70 group-hover:opacity-90 line-clamp-3">
                   {species.briefReason}
                 </p>
