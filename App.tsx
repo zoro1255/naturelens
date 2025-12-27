@@ -14,13 +14,17 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkKeyStatus = useCallback(async () => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === "undefined") {
-      // @ts-ignore
-      const selected = await window.aistudio.hasSelectedApiKey();
-      setHasKey(selected);
-    } else {
-      setHasKey(true);
+    try {
+      const apiKey = process.env.API_KEY;
+      if (!apiKey || apiKey === "undefined" || apiKey === "") {
+        // @ts-ignore
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      } else {
+        setHasKey(true);
+      }
+    } catch (e) {
+      setHasKey(false);
     }
   }, []);
 
@@ -32,7 +36,7 @@ const App: React.FC = () => {
     try {
       // @ts-ignore
       await window.aistudio.openSelectKey();
-      // Proceed as if success (race condition rule)
+      // Proceed as if success (per race condition rule: assume selection worked)
       setHasKey(true);
       setErrorMsg(null);
     } catch (err) {
@@ -109,23 +113,59 @@ const App: React.FC = () => {
 
   if (!hasKey) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-8 max-w-lg mx-auto">
-        <div className="bg-emerald-950 p-6 rounded-[2.5rem] shadow-2xl">
-          <svg className="w-16 h-16 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-          </svg>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-10 max-w-2xl mx-auto">
+        <div className="relative">
+          <div className="absolute inset-0 bg-emerald-400/20 blur-3xl rounded-full animate-pulse" />
+          <div className="relative bg-emerald-950 p-8 rounded-[3rem] shadow-2xl">
+            <svg className="w-16 h-16 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+          </div>
         </div>
-        <h1 className="text-4xl font-bold text-emerald-950 italic">API Setup Required</h1>
-        <p className="text-emerald-800/70 leading-relaxed">
-          NatureLens needs a valid API key from a paid GCP project to analyze images.
-          <br />
-          <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline font-medium">View Billing Docs</a>
-        </p>
+
+        <div className="space-y-4">
+          <h1 className="text-5xl font-bold text-emerald-950 italic">NatureLens Setup</h1>
+          <p className="text-xl text-emerald-800/80 font-medium leading-relaxed">
+            Ready to explore? We just need an API key to power the AI.
+          </p>
+        </div>
+
+        <div className="grid gap-6 w-full max-w-md">
+          <div className="bg-white/50 p-6 rounded-[2rem] border border-emerald-100 text-left">
+            <h3 className="font-bold text-emerald-950 mb-2 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-emerald-950 text-white text-[10px] flex items-center justify-center">1</span>
+              Click the button below
+            </h3>
+            <p className="text-sm text-emerald-900/60 leading-relaxed">
+              A secure dialog will appear. Select a Google Cloud project with the Gemini API enabled.
+            </p>
+          </div>
+
+          <div className="bg-white/50 p-6 rounded-[2rem] border border-emerald-100 text-left">
+            <h3 className="font-bold text-emerald-950 mb-2 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-emerald-950 text-white text-[10px] flex items-center justify-center">2</span>
+              Ensure Billing is Enabled
+            </h3>
+            <p className="text-sm text-emerald-900/60 leading-relaxed">
+              Advanced vision tasks require a project from a paid tier. 
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline ml-1 font-medium">View Billing Docs</a>
+            </p>
+          </div>
+        </div>
+
         <button
           onClick={handleSelectKey}
-          className="px-10 py-5 bg-emerald-950 text-white font-bold rounded-[2rem] transition-all hover:scale-105 active:scale-95 shadow-2xl"
+          className="group relative px-12 py-6 bg-emerald-950 text-white font-bold rounded-[2.5rem] transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_rgba(6,78,59,0.3)] overflow-hidden"
         >
-          Select API Key
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/0 via-emerald-400/10 to-emerald-400/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+          <span className="relative text-lg">Select API Key</span>
+        </button>
+
+        <button 
+          onClick={() => window.location.reload()}
+          className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-900/40 hover:text-emerald-900 transition-colors"
+        >
+          Already selected? Refresh Page
         </button>
       </div>
     );
