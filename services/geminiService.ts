@@ -5,14 +5,13 @@ import { NatureInfo } from "../types";
 /**
  * Note for Vercel Deployment:
  * You MUST add an environment variable named API_KEY in your Vercel Project Settings.
- * Go to: Vercel Dashboard -> Project -> Settings -> Environment Variables.
  */
 const getApiKey = () => {
-  // Try to get from process.env (Vercel/Node environment)
-  // or window.process (if shimmed)
+  // Defensive check for various deployment environments
   const key = (typeof process !== 'undefined' && process.env?.API_KEY) || 
-              (window as any).process?.env?.API_KEY;
-  return key || '';
+              (window as any).process?.env?.API_KEY || 
+              "";
+  return key;
 };
 
 const natureSchema = {
@@ -88,7 +87,7 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
       contents: [
         {
           parts: [
-            { text: "Identify the species in this image. If it is an animal, plant, or fungus, provide a scientific analysis. If it is a fish, include the aquaticInfo field. Use the provided JSON schema." },
+            { text: "Identify the species in this image. Provide a scientific analysis using the provided JSON schema. If it is a fish, include the aquaticInfo field." },
             {
               inlineData: {
                 mimeType: 'image/jpeg',
@@ -124,13 +123,13 @@ export async function lookupSpeciesByName(name: string): Promise<string> {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Tell me about the ${name} species. Include its common name, scientific name, and a 2-sentence summary.`,
+      contents: `Quick summary of the ${name} species. Common name, scientific name, and 2 key facts.`,
       config: {
         tools: [{ googleSearch: {} }]
       }
     });
     return response.text || "Information currently unavailable.";
   } catch (err) {
-    return "Could not fetch extra info.";
+    return "Could not fetch extra information.";
   }
 }

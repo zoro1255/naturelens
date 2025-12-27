@@ -7,7 +7,7 @@ import CameraView from './components/CameraView';
 const App: React.FC = () => {
   const [result, setResult] = useState<NatureInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<React.ReactNode | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.EASY);
   const [isLookingUp, setIsLookingUp] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -15,7 +15,7 @@ const App: React.FC = () => {
   const handleProcessImage = useCallback(async (base64: string) => {
     setIsLoading(true);
     setResult(null);
-    setError(null);
+    setErrorMsg(null);
     try {
       const data = await identifySpecies(base64);
       if (data) {
@@ -28,21 +28,16 @@ const App: React.FC = () => {
           }
         }, 150);
       } else {
-        setError("I couldn't identify this. Try a different angle.");
+        setErrorMsg("I couldn't identify this. Try a different angle or better lighting.");
       }
     } catch (err: any) {
       console.error("Processing error:", err);
       if (err.message === "MISSING_API_KEY") {
-        setError(
-          <div className="space-y-2">
-            <p className="font-bold">Missing API Key</p>
-            <p className="text-xs">Go to Vercel Settings > Environment Variables and add "API_KEY" with your Gemini key.</p>
-          </div>
-        );
+        setErrorMsg("Missing API Key. Please add 'API_KEY' to your Vercel Environment Variables.");
       } else if (err.message === "INVALID_API_KEY") {
-        setError("Your API key is invalid. Please check your AI Studio dashboard.");
+        setErrorMsg("Invalid API Key. Please check your Google AI Studio dashboard.");
       } else {
-        setError("Network error. Please check your connection.");
+        setErrorMsg("Communication error with the AI. Please try again in a moment.");
       }
     } finally {
       setIsLoading(false);
@@ -191,16 +186,12 @@ const App: React.FC = () => {
 
             {result.aquaticInfo && (
               <div className="bg-blue-50/50 border border-blue-200/40 p-10 rounded-[3rem] shadow-sm relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-8 text-blue-200/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12C21 12 17 7 12 7C11.3 7 10.6 7.1 10 7.3C10.6 8.3 11 9.4 11 10.5C11 13 9 15 6.5 15C5.4 15 4.3 14.6 3.3 14C3.1 14.6 3 15.3 3 16C3 21 8 25 13 25C18 25 22 21 22 16C22 15.3 21.9 14.6 21.7 14C21.4 14.6 21 15 21 12Z"/></svg>
-                </div>
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-4 bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-700/20">
                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86 1.417l-1.885 1.885a2 2 0 01-1.586.586 2 2 0 01-1.586-.586l-1.885-1.885a6 6 0 00-3.86-1.417l-2.387.477a2 2 0 00-1.022.547"/></svg>
                   </div>
                   <div>
                     <h4 className="text-blue-900 font-bold text-2xl font-serif">Aquatic Compatibility</h4>
-                    <p className="text-blue-700/50 text-[10px] uppercase font-bold tracking-[0.2em]">Ichthyological Analysis</p>
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-10">
@@ -208,7 +199,7 @@ const App: React.FC = () => {
                       <h5 className="text-[10px] font-bold text-blue-900/30 uppercase tracking-widest mb-4">Suitable Companions</h5>
                       <div className="flex flex-wrap gap-2.5">
                         {result.aquaticInfo.compatibleTankMates.map((mate, i) => (
-                          <span key={i} className="px-4 py-2 bg-white/80 text-blue-800 rounded-xl text-xs font-bold border border-blue-100/50 shadow-sm hover:scale-105 transition-transform cursor-default">
+                          <span key={i} className="px-4 py-2 bg-white/80 text-blue-800 rounded-xl text-xs font-bold border border-blue-100/50 shadow-sm transition-transform cursor-default">
                             {mate}
                           </span>
                         ))}
@@ -225,16 +216,18 @@ const App: React.FC = () => {
             )}
 
             <div className="grid md:grid-cols-3 gap-8">
-              {[
-                { label: 'Subspecies', value: result.advancedInfo.subspecies.join(', ') || 'Unique species' },
-                { label: 'Feeding Habits', value: result.advancedInfo.diet },
-                { label: 'Ethology', value: result.advancedInfo.behavior }
-              ].map((item, idx) => (
-                <div key={idx} className="bg-white/30 p-6 rounded-2xl border border-white/60 hover:bg-white/50 transition-colors">
-                  <h4 className="text-[10px] font-bold text-emerald-900/30 uppercase tracking-widest mb-3">{item.label}</h4>
-                  <p className="text-sm text-emerald-900/80 leading-relaxed">{item.value}</p>
-                </div>
-              ))}
+              <div className="bg-white/30 p-6 rounded-2xl border border-white/60">
+                <h4 className="text-[10px] font-bold text-emerald-900/30 uppercase tracking-widest mb-3">Subspecies</h4>
+                <p className="text-sm text-emerald-900/80 leading-relaxed">{result.advancedInfo.subspecies.join(', ') || 'Unique species'}</p>
+              </div>
+              <div className="bg-white/30 p-6 rounded-2xl border border-white/60">
+                <h4 className="text-[10px] font-bold text-emerald-900/30 uppercase tracking-widest mb-3">Feeding Habits</h4>
+                <p className="text-sm text-emerald-900/80 leading-relaxed">{result.advancedInfo.diet}</p>
+              </div>
+              <div className="bg-white/30 p-6 rounded-2xl border border-white/60">
+                <h4 className="text-[10px] font-bold text-emerald-900/30 uppercase tracking-widest mb-3">Ethology</h4>
+                <p className="text-sm text-emerald-900/80 leading-relaxed">{result.advancedInfo.behavior}</p>
+              </div>
             </div>
           </div>
         )}
@@ -248,10 +241,10 @@ const App: React.FC = () => {
                 key={i}
                 disabled={!!isLookingUp}
                 onClick={() => handleQuickLookup(species)}
-                className="group text-left bg-emerald-950/5 hover:bg-emerald-950 hover:text-white p-8 rounded-[2.5rem] border border-emerald-950/5 transition-all duration-700 hover:scale-[1.03] active:scale-95 disabled:opacity-50 hover:shadow-2xl"
+                className="group text-left bg-emerald-950/5 hover:bg-emerald-950 hover:text-white p-8 rounded-[2.5rem] border border-emerald-950/5 transition-all duration-700 hover:scale-[1.03] active:scale-95 disabled:opacity-50"
               >
                 <div className="flex justify-between items-start mb-4">
-                  <span className="text-[9px] font-bold uppercase tracking-widest bg-emerald-100 group-hover:bg-emerald-800 text-emerald-800 group-hover:text-emerald-50 px-3 py-1 rounded-full transition-colors">
+                  <span className="text-[9px] font-bold uppercase tracking-widest bg-emerald-100 group-hover:bg-emerald-800 text-emerald-800 group-hover:text-emerald-50 px-3 py-1 rounded-full">
                     {species.relationType}
                   </span>
                   {isLookingUp === species.name && (
@@ -322,12 +315,12 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {error && (
+        {errorMsg && (
           <div className="bg-red-50 border border-red-200 p-8 rounded-[2rem] text-center animate-in zoom-in-95 duration-300 max-w-lg mx-auto">
             <p className="handwritten text-red-600 text-3xl mb-2">Notice</p>
-            <div className="text-red-900/70 text-sm font-medium">{error}</div>
+            <p className="text-red-900/70 text-sm font-medium">{errorMsg}</p>
             <button 
-              onClick={() => setError(null)}
+              onClick={() => setErrorMsg(null)}
               className="mt-6 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors"
             >
               Dismiss
