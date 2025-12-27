@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NatureInfo } from "../types";
 
-// Safely access API_KEY with a fallback to avoid ReferenceErrors
+// Safely access API_KEY with a fallback
 const getApiKey = () => {
   try {
     return process.env.API_KEY || '';
@@ -10,8 +10,6 @@ const getApiKey = () => {
     return '';
   }
 };
-
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 const natureSchema = {
   type: Type.OBJECT,
@@ -78,13 +76,15 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
     console.warn("Gemini API Key is missing. Please set the API_KEY environment variable.");
   }
 
+  const ai = new GoogleGenAI({ apiKey: key });
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [
         {
           parts: [
-            { text: "Identify the animal or plant in this image. Provide a comprehensive scientific analysis. If it is a fish, strictly include the 'aquaticInfo' field with tank mate compatibility and cohabitation details. Include geographical distribution, subspecies, and conservation efforts in the advancedInfo section." },
+            { text: "Identify the species in this image. If it is an animal, plant, or fungus, provide a scientific analysis. If it is a fish, include the aquaticInfo field. Use the provided JSON schema." },
             {
               inlineData: {
                 mimeType: 'image/jpeg',
@@ -111,6 +111,9 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
 }
 
 export async function lookupSpeciesByName(name: string): Promise<string> {
+  const key = getApiKey();
+  const ai = new GoogleGenAI({ apiKey: key });
+  
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Tell me about the ${name} species. Include its common name, scientific name, and a 2-sentence summary.`,

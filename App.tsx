@@ -7,6 +7,7 @@ import CameraView from './components/CameraView';
 const App: React.FC = () => {
   const [result, setResult] = useState<NatureInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.EASY);
   const [isLookingUp, setIsLookingUp] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -14,18 +15,24 @@ const App: React.FC = () => {
   const handleProcessImage = useCallback(async (base64: string) => {
     setIsLoading(true);
     setResult(null);
+    setError(null);
     try {
       const data = await identifySpecies(base64);
-      setResult(data);
-      setTimeout(() => {
-        const element = document.getElementById('result-heading');
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          element.focus();
-        }
-      }, 150);
-    } catch (error) {
-      console.error(error);
+      if (data) {
+        setResult(data);
+        setTimeout(() => {
+          const element = document.getElementById('result-heading');
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            element.focus();
+          }
+        }, 150);
+      } else {
+        setError("I couldn't identify this one. Try a clearer angle or different lighting!");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong with the connection. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -294,7 +301,7 @@ const App: React.FC = () => {
               <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              Upload a Snapshot
+              Upload an Image
             </span>
           </button>
           <div className="flex items-center gap-4">
@@ -303,6 +310,19 @@ const App: React.FC = () => {
              <div className="w-12 h-px bg-emerald-900/10" />
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 p-8 rounded-[2rem] text-center animate-in zoom-in-95 duration-300 max-w-lg mx-auto">
+            <p className="handwritten text-red-600 text-3xl mb-2">Oops!</p>
+            <p className="text-red-900/70 text-sm font-medium">{error}</p>
+            <button 
+              onClick={() => setError(null)}
+              className="mt-6 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {isLoading && !result && (
           <div className="mt-16 text-center py-24 animate-in fade-in duration-1000" role="status">
