@@ -61,12 +61,17 @@ const natureSchema = {
   required: ["friendlyName", "scientificName", "easyDescription", "taxonomy", "advancedInfo", "funFacts", "relatedSpecies"],
 };
 
-export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
-  // Always create a new GoogleGenAI instance right before making an API call 
-  // to ensure it uses the most up-to-date API key.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+function getAIClient() {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("API_KEY_MISSING");
+  }
+  return new GoogleGenAI({ apiKey });
+}
 
+export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -97,11 +102,8 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
 }
 
 export async function lookupSpeciesByName(name: string): Promise<string> {
-  // Always create a new GoogleGenAI instance right before making an API call 
-  // to ensure it uses the most up-to-date API key.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Provide a quick summary of the '${name}' species. Include common name, scientific name, and 2 unique biological facts.`,

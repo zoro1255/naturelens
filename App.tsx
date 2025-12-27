@@ -13,27 +13,28 @@ const App: React.FC = () => {
   const [hasKey, setHasKey] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    // Check if API key is present
-    const checkKey = async () => {
-      const keyExists = !!process.env.API_KEY;
-      if (!keyExists) {
-        // @ts-ignore - window.aistudio is pre-configured and accessible in this context
-        const selected = await window.aistudio.hasSelectedApiKey();
-        setHasKey(selected);
-      } else {
-        setHasKey(true);
-      }
-    };
-    checkKey();
+  const checkKeyStatus = useCallback(async () => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey || apiKey === "undefined") {
+      // @ts-ignore
+      const selected = await window.aistudio.hasSelectedApiKey();
+      setHasKey(selected);
+    } else {
+      setHasKey(true);
+    }
   }, []);
+
+  useEffect(() => {
+    checkKeyStatus();
+  }, [checkKeyStatus]);
 
   const handleSelectKey = async () => {
     try {
-      // @ts-ignore - window.aistudio is pre-configured and accessible in this context
+      // @ts-ignore
       await window.aistudio.openSelectKey();
-      // Assume success per race condition guidelines
+      // Proceed as if success (race condition rule)
       setHasKey(true);
+      setErrorMsg(null);
     } catch (err) {
       console.error("Failed to open key selector", err);
     }
@@ -60,13 +61,21 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Processing error:", err);
-      // If the request fails with an error message containing "Requested entity was not found.", 
-      // reset the key selection state and prompt the user to select a key again via openSelectKey().
-      if (err.message?.toLowerCase().includes("requested entity was not found") || err.message?.includes("404")) {
+      
+      const errorMessage = err.message?.toLowerCase() || "";
+      const isAuthError = 
+        errorMessage.includes("api_key_missing") || 
+        errorMessage.includes("unauthorized") || 
+        errorMessage.includes("401") || 
+        errorMessage.includes("key not found") ||
+        errorMessage.includes("requested entity was not found") ||
+        errorMessage.includes("invalid api key");
+
+      if (isAuthError) {
         setHasKey(false);
-        setErrorMsg("API Key error. Please select a valid key.");
+        setErrorMsg("Your API key is missing or invalid. Please select a valid key to continue.");
       } else {
-        setErrorMsg("Could not connect to the analysis engine. Please check your internet connection and try again.");
+        setErrorMsg("The analysis engine is temporarily unavailable. Please check your connection or try a smaller image.");
       }
     } finally {
       setIsLoading(false);
@@ -108,9 +117,9 @@ const App: React.FC = () => {
         </div>
         <h1 className="text-4xl font-bold text-emerald-950 italic">API Setup Required</h1>
         <p className="text-emerald-800/70 leading-relaxed">
-          NatureLens needs an API key to identify species. Please select a key from a paid GCP project.
+          NatureLens needs a valid API key from a paid GCP project to analyze images.
           <br />
-          <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline font-medium">Learn about billing</a>
+          <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline font-medium">View Billing Docs</a>
         </p>
         <button
           onClick={handleSelectKey}
