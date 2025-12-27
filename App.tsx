@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { identifySpecies, lookupSpeciesByName } from './services/geminiService';
 import { NatureInfo, AppMode, RelatedSpecies } from './types';
 import CameraView from './components/CameraView';
@@ -10,7 +10,34 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.EASY);
   const [isLookingUp, setIsLookingUp] = useState<string | null>(null);
+  const [hasKey, setHasKey] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Check if API key is present
+    const checkKey = async () => {
+      const keyExists = !!process.env.API_KEY;
+      if (!keyExists) {
+        // @ts-ignore - window.aistudio is pre-configured and accessible in this context
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      } else {
+        setHasKey(true);
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleSelectKey = async () => {
+    try {
+      // @ts-ignore - window.aistudio is pre-configured and accessible in this context
+      await window.aistudio.openSelectKey();
+      // Assume success per race condition guidelines
+      setHasKey(true);
+    } catch (err) {
+      console.error("Failed to open key selector", err);
+    }
+  };
 
   const handleProcessImage = useCallback(async (base64: string) => {
     setIsLoading(true);
@@ -21,7 +48,6 @@ const App: React.FC = () => {
       const data = await identifySpecies(base64);
       if (data) {
         setResult(data);
-        // Delay scroll to ensure the DOM has updated
         setTimeout(() => {
           const element = document.getElementById('result-heading');
           if (element) {
@@ -34,9 +60,11 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Processing error:", err);
-      // Check for common failure causes
-      if (!process.env.API_KEY) {
-        setErrorMsg("API key not found. Please ensure the 'API_KEY' environment variable is correctly set in your deployment settings.");
+      // If the request fails with an error message containing "Requested entity was not found.", 
+      // reset the key selection state and prompt the user to select a key again via openSelectKey().
+      if (err.message?.toLowerCase().includes("requested entity was not found") || err.message?.includes("404")) {
+        setHasKey(false);
+        setErrorMsg("API Key error. Please select a valid key.");
       } else {
         setErrorMsg("Could not connect to the analysis engine. Please check your internet connection and try again.");
       }
@@ -69,6 +97,30 @@ const App: React.FC = () => {
     };
     reader.readAsDataURL(file);
   };
+
+  if (!hasKey) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-8 max-w-lg mx-auto">
+        <div className="bg-emerald-950 p-6 rounded-[2.5rem] shadow-2xl">
+          <svg className="w-16 h-16 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          </svg>
+        </div>
+        <h1 className="text-4xl font-bold text-emerald-950 italic">API Setup Required</h1>
+        <p className="text-emerald-800/70 leading-relaxed">
+          NatureLens needs an API key to identify species. Please select a key from a paid GCP project.
+          <br />
+          <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline font-medium">Learn about billing</a>
+        </p>
+        <button
+          onClick={handleSelectKey}
+          className="px-10 py-5 bg-emerald-950 text-white font-bold rounded-[2rem] transition-all hover:scale-105 active:scale-95 shadow-2xl"
+        >
+          Select API Key
+        </button>
+      </div>
+    );
+  }
 
   const ResultCard = () => {
     if (!result) return null;
@@ -317,7 +369,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="text-center md:text-right">
-          <p className="text-sm font-bold text-emerald-950">Powered by Gemini 3</p>
+          <p className="text-sm font-bold text-emerald-950">Gemini 3 Flash</p>
         </div>
       </footer>
     </div>

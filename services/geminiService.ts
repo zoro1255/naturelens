@@ -62,25 +62,24 @@ const natureSchema = {
 };
 
 export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
-  // Always initialize with process.env.API_KEY directly as per requirements
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  // Always create a new GoogleGenAI instance right before making an API call 
+  // to ensure it uses the most up-to-date API key.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: [
-        {
-          parts: [
-            { text: "Identify the species in this image. Provide a detailed scientific analysis using the provided JSON schema. If it is a fish, include the aquaticInfo field." },
-            {
-              inlineData: {
-                mimeType: 'image/jpeg',
-                data: base64Image
-              }
+      contents: {
+        parts: [
+          { text: "Identify the species in this image. Provide a detailed scientific analysis using the provided JSON schema. If it is a fish, include the aquaticInfo field." },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: base64Image
             }
-          ]
-        }
-      ],
+          }
+        ]
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: natureSchema,
@@ -98,7 +97,9 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
 }
 
 export async function lookupSpeciesByName(name: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  // Always create a new GoogleGenAI instance right before making an API call 
+  // to ensure it uses the most up-to-date API key.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({

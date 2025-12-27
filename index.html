@@ -39,7 +39,6 @@
                 0 4px 6px -2px rgba(0, 0, 0, 0.02),
                 inset 0 0 100px rgba(255,255,255,0.2);
         }
-        /* Custom scrollbar for a cleaner look */
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -54,14 +53,6 @@
             background: #94a3b8;
         }
     </style>
-    <script>
-        // Critical: Provide a fallback for process.env so the browser doesn't crash
-        window.process = { 
-            env: { 
-                API_KEY: "" // Will be injected or found in standard env
-            } 
-        };
-    </script>
 <script type="importmap">
 {
   "imports": {
@@ -75,7 +66,6 @@
 </head>
 <body class="texture-bg min-h-screen selection:bg-emerald-200">
     <div id="root"></div>
-    <!-- Entry point -->
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>
