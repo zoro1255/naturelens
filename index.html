@@ -54,6 +54,10 @@
             background: #94a3b8;
         }
     </style>
+    <script>
+        // Simple shim to prevent crashes if process.env is accessed in the browser
+        window.process = window.process || { env: {} };
+    </script>
 <script type="importmap">
 {
   "imports": {
@@ -67,5 +71,7 @@
 </head>
 <body class="texture-bg min-h-screen selection:bg-emerald-200">
     <div id="root"></div>
+    <!-- Link to entry point -->
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

@@ -2,7 +2,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NatureInfo } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Safely access API_KEY with a fallback to avoid ReferenceErrors
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 const natureSchema = {
   type: Type.OBJECT,
@@ -64,6 +73,11 @@ const natureSchema = {
 };
 
 export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
+  const key = getApiKey();
+  if (!key) {
+    console.warn("Gemini API Key is missing. Please set the API_KEY environment variable.");
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
