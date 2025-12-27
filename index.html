@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NatureLens | AI Species Discovery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Inter:wght@300;400;500;600&family=Caveat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --forest-deep: #064e3b;
+            --sage-light: #f3f7f4;
+            --clay: #a78b71;
+        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--sage-light);
+            color: #1a2e26;
+        }
+        h1, h2, h3, .serif { 
+            font-family: 'Playfair Display', serif; 
+        }
+        .handwritten {
+            font-family: 'Caveat', cursive;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .texture-bg {
+            background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+        }
+        .paper-shadow {
+            box-shadow: 
+                0 10px 15px -3px rgba(0, 0, 0, 0.05),
+                0 4px 6px -2px rgba(0, 0, 0, 0.02),
+                inset 0 0 100px rgba(255,255,255,0.2);
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body class="texture-bg min-h-screen selection:bg-emerald-200">
+    <div id="root"></div>
+</body>
+</html>

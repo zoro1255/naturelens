@@ -1,0 +1,7 @@
+{
+  "name": "NatureLens - AI Nature Explorer",
+  "description": "Identify animals and plants using your camera and AI, with dual-mode descriptions for beginners and scientists.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
