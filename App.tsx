@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { identifySpecies, getRelatedSpeciesDetail } from './services/geminiService';
 import { NatureInfo, AppMode, SpeciesDetail } from './types';
 import CameraView from './components/CameraView';
@@ -10,16 +10,32 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.EASY);
+  const [hasKey, setHasKey] = useState<boolean>(!!process.env.API_KEY && process.env.API_KEY !== "undefined");
   
   const [relatedDetails, setRelatedDetails] = useState<Record<string, SpeciesDetail>>({});
   const [isFetchingRelated, setIsFetchingRelated] = useState(false);
   
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check key status on mount
+  useEffect(() => {
+    if (window.aistudio) {
+      window.aistudio.hasSelectedApiKey().then(selected => {
+        setHasKey(selected || (!!process.env.API_KEY && process.env.API_KEY !== "undefined"));
+      });
+    }
+  }, []);
+
+  const handleOpenKeyPicker = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      setHasKey(true);
+      setErrorMsg(null);
+    }
+  };
 
   const playSuccessSound = useCallback(() => {
     try {
@@ -98,7 +114,8 @@ const App: React.FC = () => {
     } catch (err: any) {
       playErrorSound();
       if (err.message === "API_KEY_NOT_CONFIGURED") {
-        setErrorMsg("API Key required. If you are in AI Studio, please click to connect your key when prompted.");
+        setErrorMsg("API Key required. Please click 'Connect API Key' above to enable identification features.");
+        setHasKey(false);
       } else {
         setErrorMsg("NatureLens couldn't reach the AI service. Please try again in a moment.");
       }
@@ -194,7 +211,7 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-16">
-      <header className="flex flex-col items-center mb-20">
+      <header className="flex flex-col items-center mb-12">
         <div className="bg-emerald-950 p-6 rounded-[2.5rem] shadow-2xl mb-8">
            <svg className="w-14 h-14 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -203,6 +220,18 @@ const App: React.FC = () => {
         </div>
         <h1 className="text-7xl font-bold text-emerald-950 tracking-tighter mb-3 italic">NatureLens</h1>
         <p className="handwritten text-emerald-800/60 text-2xl">Explore through AI Vision</p>
+
+        {!hasKey && (
+          <button 
+            onClick={handleOpenKeyPicker}
+            className="mt-8 flex items-center gap-2 px-6 py-3 bg-emerald-100 text-emerald-900 text-sm font-bold rounded-2xl hover:bg-emerald-200 transition-colors border border-emerald-950/10 shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            Connect API Key
+          </button>
+        )}
       </header>
 
       <main className="space-y-16">
@@ -221,15 +250,23 @@ const App: React.FC = () => {
 
         {errorMsg && (
           <div className="bg-emerald-50/80 border border-emerald-200 p-8 rounded-[2rem] text-center max-w-lg mx-auto animate-in fade-in zoom-in duration-300">
-            <p className="handwritten text-emerald-700 text-3xl mb-2">Note</p>
-            <p className="text-emerald-950/70 text-sm font-medium">{errorMsg}</p>
+            <p className="handwritten text-emerald-700 text-3xl mb-2">Action Required</p>
+            <p className="text-emerald-950/70 text-sm font-medium mb-4">{errorMsg}</p>
+            {!hasKey && (
+              <button 
+                onClick={handleOpenKeyPicker}
+                className="px-6 py-2 bg-emerald-900 text-white text-xs font-bold rounded-xl hover:bg-emerald-800 transition-colors"
+              >
+                Connect Now
+              </button>
+            )}
           </div>
         )}
 
         {isLoading && !result && (
           <div className="mt-16 text-center py-24">
              <div className="w-20 h-20 border-[3px] border-emerald-950/5 border-t-emerald-800 rounded-full animate-spin mb-10 mx-auto" />
-             <p className="handwritten text-4xl text-emerald-900/70">Connecting with Nature Database...</p>
+             <p className="handwritten text-4xl text-emerald-900/70">Consulting Global Nature Archives...</p>
           </div>
         )}
 
@@ -237,9 +274,10 @@ const App: React.FC = () => {
       </main>
 
       <footer className="mt-40 pt-16 border-t border-emerald-900/10 flex flex-col md:flex-row items-center justify-between gap-10 opacity-70">
-        <p className="text-sm font-bold text-emerald-950 uppercase tracking-[0.25em]">© 2025 NatureLens</p>
+        <p className="text-sm font-bold text-emerald-950 uppercase tracking-[0.25em]">© 2025 NatureLens • Atharva</p>
         <div className="text-center md:text-right">
           <p className="text-sm font-bold text-emerald-950">Gemini Pro Vision Engine</p>
+          <p className="text-[10px] text-emerald-900/40 font-medium">Built for Discovery</p>
         </div>
       </footer>
     </div>
