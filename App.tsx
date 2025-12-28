@@ -93,14 +93,14 @@ const App: React.FC = () => {
         }, 300);
       } else {
         playErrorSound();
-        setErrorMsg("Subject identification failed. Please try a clearer photo.");
+        setErrorMsg("Identification failed. Please ensure the subject is clear and try again.");
       }
     } catch (err: any) {
       playErrorSound();
       if (err.message === "API_KEY_NOT_CONFIGURED") {
-        setErrorMsg("Configuration Error: The API_KEY environment variable is missing. Please set it in your deployment settings.");
+        setErrorMsg("API Key required. If you are in AI Studio, please click to connect your key when prompted.");
       } else {
-        setErrorMsg("Service temporarily unavailable. Please check your internet connection and try again.");
+        setErrorMsg("NatureLens couldn't reach the AI service. Please try again in a moment.");
       }
     } finally {
       setIsLoading(false);
@@ -118,17 +118,6 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoom <= 1) return;
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
-  };
-
   const ResultCard = () => {
     if (!result || !capturedImage) return null;
 
@@ -138,41 +127,26 @@ const App: React.FC = () => {
         
         <div className="mb-12 relative">
           <div className="handwritten text-emerald-600 text-2xl mb-4 text-center">Observed Specimen</div>
-          <div 
-            className="relative w-full aspect-video rounded-[2.5rem] bg-emerald-900/5 overflow-hidden cursor-move shadow-inner border border-emerald-950/10 group"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={() => setIsDragging(false)}
-            onMouseLeave={() => setIsDragging(false)}
-          >
+          <div className="relative w-full aspect-video rounded-[2.5rem] bg-emerald-900/5 overflow-hidden shadow-inner border border-emerald-950/10 group">
             <img 
               src={`data:image/jpeg;base64,${capturedImage}`} 
               alt="Nature specimen"
-              className="w-full h-full object-contain transition-transform duration-200 select-none pointer-events-none"
+              className="w-full h-full object-contain select-none"
               style={{ transform: `scale(${zoom}) translate(${offset.x / zoom}px, ${offset.y / zoom}px)` }}
             />
-            <div className="absolute bottom-6 right-6 flex items-center gap-2 bg-emerald-950/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => setZoom(prev => Math.max(prev - 0.5, 1))} className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-xl">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" /></svg>
-              </button>
-              <span className="text-white/50 text-xs w-8 text-center">{zoom}x</span>
-              <button onClick={() => setZoom(prev => Math.min(prev + 0.5, 5))} className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-xl">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-              </button>
-            </div>
           </div>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 relative z-10">
           <div>
-            <p className="handwritten text-emerald-600 text-2xl mb-1">Specimen Identification</p>
+            <p className="handwritten text-emerald-600 text-2xl mb-1">Identification</p>
             <h2 id="result-heading" className="text-5xl font-bold text-emerald-950 mb-3">{result.friendlyName}</h2>
             <p className="text-xl text-emerald-700/70 italic font-medium serif">{result.scientificName}</p>
           </div>
           
           <div className="flex bg-emerald-950/5 p-1.5 rounded-2xl border border-emerald-950/10">
-            <button onClick={() => setMode(AppMode.EASY)} className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${mode === AppMode.EASY ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-900/50'}`}>Discovery Mode</button>
-            <button onClick={() => setMode(AppMode.ADVANCED)} className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${mode === AppMode.ADVANCED ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-900/50'}`}>Expert Mode</button>
+            <button onClick={() => setMode(AppMode.EASY)} className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${mode === AppMode.EASY ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-900/50'}`}>Discovery</button>
+            <button onClick={() => setMode(AppMode.ADVANCED)} className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${mode === AppMode.ADVANCED ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-900/50'}`}>Expert</button>
           </div>
         </div>
 
@@ -184,7 +158,7 @@ const App: React.FC = () => {
             <div className="grid md:grid-cols-3 gap-6">
               {result.funFacts.map((fact, i) => (
                 <div key={i} className="bg-white/50 p-6 rounded-[2rem] border border-emerald-100/50">
-                  <div className="handwritten text-emerald-500 text-xl mb-2">Cool Fact</div>
+                  <div className="handwritten text-emerald-500 text-xl mb-2">Did You Know?</div>
                   <p className="text-emerald-900/80 text-sm leading-relaxed">{fact}</p>
                 </div>
               ))}
@@ -211,7 +185,7 @@ const App: React.FC = () => {
                 <p className="text-2xl font-bold">{result.advancedInfo.conservationStatus}</p>
               </div>
             </div>
-            <p className="text-sm text-emerald-900/80 leading-relaxed">{result.advancedInfo.distribution}</p>
+            <p className="text-sm text-emerald-900/80 leading-relaxed italic">{result.advancedInfo.distribution}</p>
           </div>
         )}
       </section>
@@ -228,7 +202,7 @@ const App: React.FC = () => {
            </svg>
         </div>
         <h1 className="text-7xl font-bold text-emerald-950 tracking-tighter mb-3 italic">NatureLens</h1>
-        <p className="handwritten text-emerald-800/60 text-2xl">Discover the world through AI</p>
+        <p className="handwritten text-emerald-800/60 text-2xl">Explore through AI Vision</p>
       </header>
 
       <main className="space-y-16">
@@ -241,21 +215,21 @@ const App: React.FC = () => {
             disabled={isLoading}
             className="px-10 py-5 bg-emerald-950 text-white font-bold rounded-[2rem] hover:scale-105 active:scale-95 disabled:opacity-50 transition-all shadow-xl"
           >
-            Upload Specimen Image
+            Upload Observation
           </button>
         </div>
 
         {errorMsg && (
-          <div className="bg-red-50 border border-red-200 p-8 rounded-[2rem] text-center max-w-lg mx-auto animate-in fade-in zoom-in duration-300">
-            <p className="handwritten text-red-600 text-3xl mb-2">Configuration Required</p>
-            <p className="text-red-900/70 text-sm font-medium">{errorMsg}</p>
+          <div className="bg-emerald-50/80 border border-emerald-200 p-8 rounded-[2rem] text-center max-w-lg mx-auto animate-in fade-in zoom-in duration-300">
+            <p className="handwritten text-emerald-700 text-3xl mb-2">Note</p>
+            <p className="text-emerald-950/70 text-sm font-medium">{errorMsg}</p>
           </div>
         )}
 
         {isLoading && !result && (
           <div className="mt-16 text-center py-24">
-             <div className="w-24 h-24 border-[3px] border-emerald-950/5 border-t-emerald-800 rounded-full animate-spin mb-10 mx-auto" />
-             <p className="handwritten text-4xl text-emerald-900/70">Consulting Biology Database...</p>
+             <div className="w-20 h-20 border-[3px] border-emerald-950/5 border-t-emerald-800 rounded-full animate-spin mb-10 mx-auto" />
+             <p className="handwritten text-4xl text-emerald-900/70">Connecting with Nature Database...</p>
           </div>
         )}
 
@@ -264,11 +238,9 @@ const App: React.FC = () => {
 
       <footer className="mt-40 pt-16 border-t border-emerald-900/10 flex flex-col md:flex-row items-center justify-between gap-10 opacity-70">
         <p className="text-sm font-bold text-emerald-950 uppercase tracking-[0.25em]">© 2025 NatureLens</p>
-        <div className="text-center bg-white/40 p-4 rounded-[1.5rem] border border-white/60">
-           <p className="text-xs font-bold text-emerald-900 uppercase mb-1">Developer Signature</p>
-           <p className="text-[11px] text-emerald-800/70 italic">Atharva • Connecting Curiosity with Intelligence</p>
+        <div className="text-center md:text-right">
+          <p className="text-sm font-bold text-emerald-950">Gemini Pro Vision Engine</p>
         </div>
-        <p className="text-sm font-bold text-emerald-950">Gemini 3 Flash Powered</p>
       </footer>
     </div>
   );

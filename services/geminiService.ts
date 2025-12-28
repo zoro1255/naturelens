@@ -2,6 +2,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NatureInfo, SpeciesDetail } from "../types";
 
+// Fix: Declare AIStudio as a global interface to match the environment's expected type naming.
+// This resolves the error where subsequent property declarations must have the same type.
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}
+
 const natureSchema = {
   type: Type.OBJECT,
   properties: {
@@ -50,7 +63,7 @@ const natureSchema = {
         properties: {
           name: { type: Type.STRING },
           scientificName: { type: Type.STRING },
-          relationType: { type: Type.STRING, enum: ['visually similar', 'ecologically related', 'same family'] },
+          relationType: { type: Type.STRING, description: "Relationship type: 'visually similar', 'ecologically related', or 'same family'" },
           briefReason: { type: Type.STRING }
         },
         required: ["name", "scientificName", "relationType", "briefReason"]
@@ -74,24 +87,38 @@ const speciesDetailSchema = {
 
 /**
  * Creates a fresh AI client instance. 
- * We do this per-request to ensure the most up-to-date API_KEY from the environment is used.
+ * Automatically prompts for a key if missing in the preview environment.
  */
-function createClient() {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === "undefined" || apiKey === "null") {
+async function createClient() {
+  let apiKey = process.env.API_KEY;
+  
+  // If key is missing and we're in the AI Studio environment, try to trigger the key selector
+  if ((!apiKey || apiKey === "undefined") && window.aistudio) {
+    const hasKey = await window.aistudio.hasSelectedApiKey();
+    if (!hasKey) {
+      // Trigger key selection dialog
+      await window.aistudio.openSelectKey();
+      // Assume selection was successful per guidelines to avoid race conditions
+      apiKey = process.env.API_KEY; 
+    }
+  }
+
+  if (!apiKey || apiKey === "undefined") {
     throw new Error("API_KEY_NOT_CONFIGURED");
   }
+
+  // Create instance right before API call as per requirements
   return new GoogleGenAI({ apiKey });
 }
 
 export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
   try {
-    const ai = createClient();
+    const ai = await createClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
-          { text: "Identify the species in this image. Provide a detailed scientific analysis using the provided JSON schema. If it is a fish, include the aquaticInfo field." },
+          { text: "Identify the species in this image. Provide a detailed scientific analysis using the provided JSON schema." },
           {
             inlineData: {
               mimeType: 'image/jpeg',
@@ -108,48 +135,28 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
 
     const text = response.text;
     if (!text) throw new Error("EMPTY_RESPONSE");
-    
     return JSON.parse(text) as NatureInfo;
   } catch (error: any) {
-    console.error("Gemini API Identification Error:", error);
+    // Handle the specific "Entity not found" error by re-triggering key selection
+    if (error.message?.includes("Requested entity was not found") && window.aistudio) {
+      await window.aistudio.openSelectKey();
+    }
     throw error;
   }
 }
 
 export async function getRelatedSpeciesDetail(name: string): Promise<SpeciesDetail> {
-  try {
-    const ai = createClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Provide detailed biological information about the species: ${name}.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: speciesDetailSchema,
-      }
-    });
-    
-    const text = response.text;
-    if (!text) throw new Error("EMPTY_RESPONSE");
-    return JSON.parse(text) as SpeciesDetail;
-  } catch (err) {
-    console.error("Gemini API Related Species Detail Error:", err);
-    throw err;
-  }
-}
-
-export async function lookupSpeciesByName(name: string): Promise<string> {
-  try {
-    const ai = createClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Provide a quick summary of the '${name}' species. Include common name, scientific name, and 2 unique biological facts.`,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
-    });
-    return response.text || "Details are currently unavailable.";
-  } catch (err) {
-    console.error("Gemini API Lookup Error:", err);
-    return "Could not retrieve additional species information at this time.";
-  }
+  const ai = await createClient();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Provide detailed biological information about the species: ${name}.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: speciesDetailSchema,
+    }
+  });
+  
+  const text = response.text;
+  if (!text) throw new Error("EMPTY_RESPONSE");
+  return JSON.parse(text) as SpeciesDetail;
 }
