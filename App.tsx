@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { identifySpecies, lookupSpeciesByName, getRelatedSpeciesDetail } from './services/geminiService';
 import { NatureInfo, AppMode, RelatedSpecies, SpeciesDetail } from './types';
 import CameraView from './components/CameraView';
@@ -11,7 +11,6 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.EASY);
   const [isLookingUp, setIsLookingUp] = useState<string | null>(null);
-  const [hasKey, setHasKey] = useState<boolean>(true);
   
   // Related species detailed information state
   const [relatedDetails, setRelatedDetails] = useState<Record<string, SpeciesDetail>>({});
@@ -59,36 +58,6 @@ const App: React.FC = () => {
       osc.stop(ctx.currentTime + 0.2);
     } catch (e) {}
   }, []);
-
-  const checkKeyStatus = useCallback(async () => {
-    try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey || apiKey === "undefined" || apiKey === "") {
-        // @ts-ignore
-        const selected = await window.aistudio.hasSelectedApiKey();
-        setHasKey(selected);
-      } else {
-        setHasKey(true);
-      }
-    } catch (e) {
-      setHasKey(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    checkKeyStatus();
-  }, [checkKeyStatus]);
-
-  const handleSelectKey = async () => {
-    try {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      setHasKey(true);
-      setErrorMsg(null);
-    } catch (err) {
-      console.error("Failed to open key selector", err);
-    }
-  };
 
   const handleProcessImage = useCallback(async (base64: string) => {
     setIsLoading(true);
@@ -139,37 +108,11 @@ const App: React.FC = () => {
     } catch (err: any) {
       playErrorSound();
       console.error("Processing error:", err);
-      const errorMessage = err.message?.toLowerCase() || "";
-      const isAuthError = 
-        errorMessage.includes("api_key_missing") || 
-        errorMessage.includes("unauthorized") || 
-        errorMessage.includes("401") || 
-        errorMessage.includes("key not found") ||
-        errorMessage.includes("requested entity was not found") ||
-        errorMessage.includes("invalid api key");
-
-      if (isAuthError) {
-        setHasKey(false);
-        setErrorMsg("Your API key is missing or invalid. Please select a valid key to continue.");
-      } else {
-        setErrorMsg("The analysis engine is temporarily unavailable. Please check your connection or try a smaller image.");
-      }
+      setErrorMsg("NatureLens encountered an error. Please ensure the API service is properly configured.");
     } finally {
       setIsLoading(false);
     }
   }, [playSuccessSound, playErrorSound]);
-
-  const handleQuickLookup = async (species: RelatedSpecies) => {
-    setIsLookingUp(species.name);
-    try {
-      const info = await lookupSpeciesByName(species.name);
-      alert(`${species.name}\n\n${info}`);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLookingUp(null);
-    }
-  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -209,66 +152,6 @@ const App: React.FC = () => {
     }
   };
 
-  if (!hasKey) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-10 max-w-2xl mx-auto">
-        <div className="relative">
-          <div className="absolute inset-0 bg-emerald-400/20 blur-3xl rounded-full animate-pulse" />
-          <div className="relative bg-emerald-950 p-8 rounded-[3rem] shadow-2xl">
-            <svg className="w-16 h-16 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h1 className="text-5xl font-bold text-emerald-950 italic">NatureLens Setup</h1>
-          <p className="text-xl text-emerald-800/80 font-medium leading-relaxed">
-            Ready to explore? We just need an API key to power the AI.
-          </p>
-        </div>
-
-        <div className="grid gap-6 w-full max-w-md">
-          <div className="bg-white/50 p-6 rounded-[2rem] border border-emerald-100 text-left">
-            <h3 className="font-bold text-emerald-950 mb-2 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-emerald-950 text-white text-[10px] flex items-center justify-center">1</span>
-              Click the button below
-            </h3>
-            <p className="text-sm text-emerald-900/60 leading-relaxed">
-              A secure dialog will appear. Select a Google Cloud project with the Gemini API enabled.
-            </p>
-          </div>
-
-          <div className="bg-white/50 p-6 rounded-[2rem] border border-emerald-100 text-left">
-            <h3 className="font-bold text-emerald-950 mb-2 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-emerald-950 text-white text-[10px] flex items-center justify-center">2</span>
-              Ensure Billing is Enabled
-            </h3>
-            <p className="text-sm text-emerald-900/60 leading-relaxed">
-              Advanced vision tasks require a project from a paid tier. 
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline ml-1 font-medium">View Billing Docs</a>
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleSelectKey}
-          className="group relative px-12 py-6 bg-emerald-950 text-white font-bold rounded-[2.5rem] transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_rgba(6,78,59,0.3)] overflow-hidden"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/0 via-emerald-400/10 to-emerald-400/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-          <span className="relative text-lg">Select API Key</span>
-        </button>
-
-        <button 
-          onClick={() => window.location.reload()}
-          className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-900/40 hover:text-emerald-900 transition-colors"
-        >
-          Already selected? Refresh Page
-        </button>
-      </div>
-    );
-  }
-
   const ResultCard = () => {
     if (!result || !capturedImage) return null;
 
@@ -279,7 +162,6 @@ const App: React.FC = () => {
       >
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/30 rounded-full blur-3xl -mr-10 -mt-10" />
         
-        {/* Specimen Observer Section */}
         <div className="mb-12 relative">
           <div className="handwritten text-emerald-600 text-2xl mb-4 text-center">Specimen Observation</div>
           <div 
@@ -299,7 +181,6 @@ const App: React.FC = () => {
               }}
             />
             
-            {/* Zoom Controls Overlay */}
             <div className="absolute bottom-6 right-6 flex items-center gap-2 bg-emerald-950/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               <button 
                 onClick={() => setZoom(prev => Math.max(prev - 0.5, 1))}
@@ -325,11 +206,6 @@ const App: React.FC = () => {
               >
                 Reset
               </button>
-            </div>
-            
-            {/* Instructions Overlay */}
-            <div className="absolute top-6 left-6 pointer-events-none opacity-40">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-950">Drag to Pan • Wheel to Zoom</p>
             </div>
           </div>
         </div>
@@ -430,30 +306,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {result.aquaticInfo && (
-              <div className="bg-blue-50/50 border border-blue-200/40 p-10 rounded-[3rem] shadow-sm">
-                <h4 className="text-blue-900 font-bold text-2xl font-serif mb-6">Aquatic Analysis</h4>
-                <div className="grid md:grid-cols-2 gap-10">
-                   <div>
-                      <h5 className="text-[10px] font-bold text-blue-900/30 uppercase tracking-widest mb-4">Compatible Species</h5>
-                      <div className="flex flex-wrap gap-2.5">
-                        {result.aquaticInfo.compatibleTankMates.map((mate, i) => (
-                          <span key={i} className="px-4 py-2 bg-white/80 text-blue-800 rounded-xl text-xs font-bold border border-blue-100/50">
-                            {mate}
-                          </span>
-                        ))}
-                      </div>
-                   </div>
-                   <div>
-                      <h5 className="text-[10px] font-bold text-blue-900/30 uppercase tracking-widest mb-4">Habitat Notes</h5>
-                      <p className="text-sm text-blue-900/80 leading-relaxed italic">
-                        {result.aquaticInfo.cohabitationNotes}
-                      </p>
-                   </div>
-                </div>
-              </div>
-            )}
-
             <div className="grid md:grid-cols-3 gap-8">
               <div className="bg-white/30 p-6 rounded-2xl border border-white/60">
                 <h4 className="text-[10px] font-bold text-emerald-900/30 uppercase tracking-widest mb-3">Subspecies</h4>
@@ -471,7 +323,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* New Detailed Related Species Section */}
         <div className="mt-20">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -618,14 +469,12 @@ const App: React.FC = () => {
         <div className="text-center md:text-left">
           <p className="text-sm font-bold text-emerald-950 uppercase tracking-[0.25em]">© 2025 NatureLens</p>
         </div>
-        
         <div className="text-center bg-white/40 p-6 rounded-[2rem] border border-white/60 max-w-sm">
            <p className="text-xs font-bold text-emerald-900 uppercase tracking-widest mb-2">Developed by Atharva</p>
            <p className="text-[11px] text-emerald-800/70 leading-relaxed italic">
              Connecting curiosity with intelligence.
            </p>
         </div>
-
         <div className="text-center md:text-right">
           <p className="text-sm font-bold text-emerald-950">Gemini 3 Flash</p>
         </div>
