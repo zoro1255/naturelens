@@ -72,17 +72,21 @@ const speciesDetailSchema = {
   required: ["description", "keyCharacteristic", "habitatSummary", "conservationNote"]
 };
 
-function getAIClient() {
+/**
+ * Creates a fresh AI client instance. 
+ * We do this per-request to ensure the most up-to-date API_KEY from the environment is used.
+ */
+function createClient() {
   const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === "undefined") {
-    throw new Error("API_KEY_MISSING");
+  if (!apiKey || apiKey === "undefined" || apiKey === "null") {
+    throw new Error("API_KEY_NOT_CONFIGURED");
   }
   return new GoogleGenAI({ apiKey });
 }
 
 export async function identifySpecies(base64Image: string): Promise<NatureInfo | null> {
   try {
-    const ai = getAIClient();
+    const ai = createClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -114,7 +118,7 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
 
 export async function getRelatedSpeciesDetail(name: string): Promise<SpeciesDetail> {
   try {
-    const ai = getAIClient();
+    const ai = createClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Provide detailed biological information about the species: ${name}.`,
@@ -135,7 +139,7 @@ export async function getRelatedSpeciesDetail(name: string): Promise<SpeciesDeta
 
 export async function lookupSpeciesByName(name: string): Promise<string> {
   try {
-    const ai = getAIClient();
+    const ai = createClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Provide a quick summary of the '${name}' species. Include common name, scientific name, and 2 unique biological facts.`,
