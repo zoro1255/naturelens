@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { NatureInfo } from "../types";
+import { NatureInfo, SpeciesDetail } from "../types";
 
 const natureSchema = {
   type: Type.OBJECT,
@@ -61,6 +61,17 @@ const natureSchema = {
   required: ["friendlyName", "scientificName", "easyDescription", "taxonomy", "advancedInfo", "funFacts", "relatedSpecies"],
 };
 
+const speciesDetailSchema = {
+  type: Type.OBJECT,
+  properties: {
+    description: { type: Type.STRING, description: "A concise 2-sentence description of the species." },
+    keyCharacteristic: { type: Type.STRING, description: "One main physical or behavioral feature." },
+    habitatSummary: { type: Type.STRING, description: "Brief summary of where it typically lives." },
+    conservationNote: { type: Type.STRING, description: "Current conservation trend or status note." }
+  },
+  required: ["description", "keyCharacteristic", "habitatSummary", "conservationNote"]
+};
+
 function getAIClient() {
   const apiKey = process.env.API_KEY;
   if (!apiKey || apiKey === "undefined") {
@@ -98,6 +109,27 @@ export async function identifySpecies(base64Image: string): Promise<NatureInfo |
   } catch (error: any) {
     console.error("Gemini API Identification Error:", error);
     throw error;
+  }
+}
+
+export async function getRelatedSpeciesDetail(name: string): Promise<SpeciesDetail> {
+  try {
+    const ai = getAIClient();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Provide detailed biological information about the species: ${name}.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: speciesDetailSchema,
+      }
+    });
+    
+    const text = response.text;
+    if (!text) throw new Error("EMPTY_RESPONSE");
+    return JSON.parse(text) as SpeciesDetail;
+  } catch (err) {
+    console.error("Gemini API Related Species Detail Error:", err);
+    throw err;
   }
 }
 

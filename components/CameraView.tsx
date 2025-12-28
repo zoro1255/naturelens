@@ -13,6 +13,43 @@ const CameraView: React.FC<CameraViewProps> = ({ onCapture, isLoading }) => {
   const [error, setError] = useState<string | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
 
+  // Procedural Shutter Sound
+  const playShutterSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      // White noise burst for the shutter "click"
+      const bufferSize = ctx.sampleRate * 0.05;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'highpass';
+      noiseFilter.frequency.value = 1000;
+      
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.2, ctx.currentTime);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+      
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      
+      noise.start();
+      noise.stop(ctx.currentTime + 0.05);
+    } catch (e) {
+      console.warn("Audio feedback failed:", e);
+    }
+  }, []);
+
   useEffect(() => {
     async function startCamera() {
       try {
@@ -43,6 +80,7 @@ const CameraView: React.FC<CameraViewProps> = ({ onCapture, isLoading }) => {
     if (!videoRef.current || !canvasRef.current || isLoading) return;
 
     setIsFlashing(true);
+    playShutterSound();
     setTimeout(() => setIsFlashing(false), 150);
 
     const canvas = canvasRef.current;
@@ -60,7 +98,7 @@ const CameraView: React.FC<CameraViewProps> = ({ onCapture, isLoading }) => {
         onCapture(base64Data);
       }
     }
-  }, [onCapture, isLoading]);
+  }, [onCapture, isLoading, playShutterSound]);
 
   if (error) {
     return (

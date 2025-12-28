@@ -1,17 +1,64 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { identifySpecies, lookupSpeciesByName } from './services/geminiService';
-import { NatureInfo, AppMode, RelatedSpecies } from './types';
+import { identifySpecies, lookupSpeciesByName, getRelatedSpeciesDetail } from './services/geminiService';
+import { NatureInfo, AppMode, RelatedSpecies, SpeciesDetail } from './types';
 import CameraView from './components/CameraView';
 
 const App: React.FC = () => {
   const [result, setResult] = useState<NatureInfo | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.EASY);
   const [isLookingUp, setIsLookingUp] = useState<string | null>(null);
   const [hasKey, setHasKey] = useState<boolean>(true);
+  
+  // Related species detailed information state
+  const [relatedDetails, setRelatedDetails] = useState<Record<string, SpeciesDetail>>({});
+  const [isFetchingRelated, setIsFetchingRelated] = useState(false);
+  
+  // Zoom & Pan State
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Audio Feedback Utilities
+  const playSuccessSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+  }, []);
+
+  const playErrorSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+    } catch (e) {}
+  }, []);
 
   const checkKeyStatus = useCallback(async () => {
     try {
@@ -36,7 +83,6 @@ const App: React.FC = () => {
     try {
       // @ts-ignore
       await window.aistudio.openSelectKey();
-      // Proceed as if success (per race condition rule: assume selection worked)
       setHasKey(true);
       setErrorMsg(null);
     } catch (err) {
@@ -47,12 +93,38 @@ const App: React.FC = () => {
   const handleProcessImage = useCallback(async (base64: string) => {
     setIsLoading(true);
     setResult(null);
+    setCapturedImage(base64);
     setErrorMsg(null);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+    setRelatedDetails({});
     
     try {
       const data = await identifySpecies(base64);
       if (data) {
         setResult(data);
+        playSuccessSound();
+        
+        // After main identification, fetch separate details for each related species
+        setIsFetchingRelated(true);
+        const detailPromises = data.relatedSpecies.map(async (species) => {
+          try {
+            const details = await getRelatedSpeciesDetail(species.name);
+            return { name: species.name, details };
+          } catch (e) {
+            console.error(`Failed to fetch details for ${species.name}`, e);
+            return null;
+          }
+        });
+
+        const detailedResults = await Promise.all(detailPromises);
+        const detailsMap: Record<string, SpeciesDetail> = {};
+        detailedResults.forEach(res => {
+          if (res) detailsMap[res.name] = res.details;
+        });
+        setRelatedDetails(detailsMap);
+        setIsFetchingRelated(false);
+
         setTimeout(() => {
           const element = document.getElementById('result-heading');
           if (element) {
@@ -61,11 +133,12 @@ const App: React.FC = () => {
           }
         }, 300);
       } else {
+        playErrorSound();
         setErrorMsg("The AI couldn't find a clear subject. Try taking the photo again from a different angle.");
       }
     } catch (err: any) {
+      playErrorSound();
       console.error("Processing error:", err);
-      
       const errorMessage = err.message?.toLowerCase() || "";
       const isAuthError = 
         errorMessage.includes("api_key_missing") || 
@@ -84,7 +157,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [playSuccessSound, playErrorSound]);
 
   const handleQuickLookup = async (species: RelatedSpecies) => {
     setIsLookingUp(species.name);
@@ -109,6 +182,31 @@ const App: React.FC = () => {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // Zoom/Pan Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setOffset({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.2 : 0.2;
+      setZoom(prev => Math.min(Math.max(prev + delta, 1), 5));
+    }
   };
 
   if (!hasKey) {
@@ -172,7 +270,7 @@ const App: React.FC = () => {
   }
 
   const ResultCard = () => {
-    if (!result) return null;
+    if (!result || !capturedImage) return null;
 
     return (
       <section 
@@ -181,6 +279,61 @@ const App: React.FC = () => {
       >
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/30 rounded-full blur-3xl -mr-10 -mt-10" />
         
+        {/* Specimen Observer Section */}
+        <div className="mb-12 relative">
+          <div className="handwritten text-emerald-600 text-2xl mb-4 text-center">Specimen Observation</div>
+          <div 
+            className="relative w-full aspect-video rounded-[2.5rem] bg-emerald-900/5 overflow-hidden cursor-move shadow-inner border border-emerald-950/10 group"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+          >
+            <img 
+              src={`data:image/jpeg;base64,${capturedImage}`} 
+              alt="Nature specimen"
+              className="w-full h-full object-contain transition-transform duration-200 ease-out select-none pointer-events-none"
+              style={{
+                transform: `scale(${zoom}) translate(${offset.x / zoom}px, ${offset.y / zoom}px)`
+              }}
+            />
+            
+            {/* Zoom Controls Overlay */}
+            <div className="absolute bottom-6 right-6 flex items-center gap-2 bg-emerald-950/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <button 
+                onClick={() => setZoom(prev => Math.max(prev - 0.5, 1))}
+                className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-xl transition-colors"
+                title="Zoom Out"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" /></svg>
+              </button>
+              <div className="text-[10px] font-bold text-white/50 w-12 text-center tabular-nums">
+                {zoom.toFixed(1)}x
+              </div>
+              <button 
+                onClick={() => setZoom(prev => Math.min(prev + 0.5, 5))}
+                className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-xl transition-colors"
+                title="Zoom In"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+              </button>
+              <div className="w-px h-6 bg-white/10 mx-1" />
+              <button 
+                onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}
+                className="px-4 h-10 flex items-center justify-center text-emerald-400 hover:bg-emerald-400/10 rounded-xl transition-colors text-[10px] font-bold uppercase tracking-widest"
+              >
+                Reset
+              </button>
+            </div>
+            
+            {/* Instructions Overlay */}
+            <div className="absolute top-6 left-6 pointer-events-none opacity-40">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-950">Drag to Pan • Wheel to Zoom</p>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 relative z-10">
           <div className="max-w-xl">
             <p className="handwritten text-emerald-600 text-2xl mb-1 ml-1 transform -rotate-2">I found a...</p>
@@ -318,30 +471,86 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* New Detailed Related Species Section */}
         <div className="mt-20">
-          <p className="handwritten text-emerald-600/60 text-xl text-center mb-2">Explore related species</p>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <p className="handwritten text-emerald-600 text-2xl mb-1">Ecosystem Context</p>
+              <h3 className="text-3xl font-bold text-emerald-950">Related Species Deep-Dive</h3>
+            </div>
+            {isFetchingRelated && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full animate-pulse">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" />
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Gathering Data...</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-8">
             {result.relatedSpecies.map((species, i) => (
-              <button
-                key={i}
-                disabled={!!isLookingUp}
-                onClick={() => handleQuickLookup(species)}
-                className="group text-left bg-emerald-950/5 hover:bg-emerald-950 hover:text-white p-8 rounded-[2.5rem] border border-emerald-950/5 transition-all duration-500"
+              <div 
+                key={i} 
+                className="group bg-white/40 p-10 rounded-[3rem] border border-white/60 hover:border-emerald-200/50 hover:bg-white/60 transition-all duration-700 shadow-sm"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <span className="text-[9px] font-bold uppercase tracking-widest bg-emerald-100 group-hover:bg-emerald-800 text-emerald-800 group-hover:text-emerald-50 px-3 py-1 rounded-full">
-                    {species.relationType}
-                  </span>
-                  {isLookingUp === species.name && (
-                    <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                  )}
+                <div className="flex flex-col lg:flex-row gap-10">
+                  <div className="lg:w-1/3">
+                    <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-widest rounded-full mb-4">
+                      {species.relationType}
+                    </span>
+                    <h4 className="text-2xl font-bold text-emerald-950 mb-1">{species.name}</h4>
+                    <p className="text-sm italic text-emerald-700/60 mb-6 font-serif">{species.scientificName}</p>
+                    <p className="text-sm leading-relaxed text-emerald-900/70 border-l-2 border-emerald-100 pl-4 italic">
+                      "{species.briefReason}"
+                    </p>
+                  </div>
+
+                  <div className="lg:w-2/3">
+                    {relatedDetails[species.name] ? (
+                      <div className="grid md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                        <div className="space-y-6">
+                          <div>
+                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-emerald-900/30 mb-2">Description</h5>
+                            <p className="text-sm text-emerald-900/80 leading-relaxed">
+                              {relatedDetails[species.name].description}
+                            </p>
+                          </div>
+                          <div>
+                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-emerald-900/30 mb-2">Key Characteristic</h5>
+                            <p className="text-sm font-bold text-emerald-800">
+                              {relatedDetails[species.name].keyCharacteristic}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-6">
+                          <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100/50">
+                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-emerald-900/30 mb-2">Habitat</h5>
+                            <p className="text-xs text-emerald-900/70 leading-relaxed italic">
+                              {relatedDetails[species.name].habitatSummary}
+                            </p>
+                          </div>
+                          <div>
+                            <h5 className="text-[10px] font-bold uppercase tracking-widest text-emerald-900/30 mb-2">Status</h5>
+                            <p className="text-xs font-medium text-emerald-700">
+                              {relatedDetails[species.name].conservationNote}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center border-2 border-dashed border-emerald-900/5 rounded-[2rem] bg-emerald-50/20 p-8">
+                        {isFetchingRelated ? (
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-6 h-6 border-2 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
+                            <p className="text-[10px] font-bold text-emerald-900/20 uppercase tracking-widest">Compiling Files</p>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] font-bold text-emerald-900/20 uppercase tracking-widest">Detail Not Available</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <h4 className="text-xl font-bold mb-1 font-serif">{species.name}</h4>
-                <p className="text-[11px] italic opacity-50 mb-4">{species.scientificName}</p>
-                <p className="text-xs leading-relaxed opacity-70 group-hover:opacity-90 line-clamp-3">
-                  {species.briefReason}
-                </p>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -395,7 +604,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {isLoading && !result && (
+        {(isLoading || isFetchingRelated) && !result && (
           <div className="mt-16 text-center py-24" role="status">
              <div className="w-24 h-24 border-[3px] border-emerald-950/5 border-t-emerald-800 rounded-full animate-spin mb-10 mx-auto" />
              <p className="handwritten text-4xl text-emerald-900/70">Identifying your discovery...</p>

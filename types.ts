@@ -6,6 +6,13 @@ export interface RelatedSpecies {
   briefReason: string;
 }
 
+export interface SpeciesDetail {
+  description: string;
+  keyCharacteristic: string;
+  habitatSummary: string;
+  conservationNote: string;
+}
+
 export interface NatureInfo {
   friendlyName: string;
   scientificName: string;
