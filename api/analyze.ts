@@ -37,11 +37,15 @@ const natureSchema = {
         properties: { 
           name: { type: Type.STRING }, 
           scientificName: { type: Type.STRING }, 
-          relationType: { type: Type.STRING }, 
+          relationType: { 
+            type: Type.STRING,
+            description: "Must be one of: 'visually similar', 'ecologically related', 'same family'"
+          }, 
           briefReason: { type: Type.STRING } 
         },
         required: ["name", "scientificName", "relationType", "briefReason"]
-      }
+      },
+      description: "Provide 2-3 suggestions of biological relatives or similar-looking species."
     }
   },
   required: ["friendlyName", "scientificName", "easyDescription", "taxonomy", "advancedInfo", "funFacts", "relatedSpecies"],
@@ -70,6 +74,7 @@ export default async function handler(req: Request) {
                    RULES:
                    - If a person is visible, identify as 'Human Explorer' (Homo sapiens).
                    - Provide exhaustive botanical, marine, or zoological details.
+                   - For 'relatedSpecies', suggest 2-3 actual biological relatives or species that are often confused with this specimen.
                    - Return strictly valid JSON matching the schema provided.` 
           },
           { inlineData: { mimeType: 'image/jpeg', data: image } }

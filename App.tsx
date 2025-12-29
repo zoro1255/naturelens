@@ -48,13 +48,22 @@ const App: React.FC = () => {
 
   const triggerDemo = () => {
     setIsDemoMode(true);
-    setCapturedImage(null); // Demo mode uses stock imagery or icons
+    setCapturedImage(null); 
     const randomSpecimen = LOCAL_DATABASE[Math.floor(Math.random() * LOCAL_DATABASE.length)];
     setResult(randomSpecimen);
     setError(null);
     setTimeout(() => {
       document.getElementById('result-focus')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 300);
+  };
+
+  const getRelationColor = (type: string) => {
+    switch (type) {
+      case 'visually similar': return 'bg-blue-50 text-blue-700 border-blue-100';
+      case 'ecologically related': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'same family': return 'bg-purple-50 text-purple-700 border-purple-100';
+      default: return 'bg-slate-50 text-slate-700 border-slate-100';
+    }
   };
 
   return (
@@ -152,7 +161,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-12">
+                  <div className="space-y-16">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
                           <p className="text-[9px] font-black uppercase text-slate-300 mb-2 tracking-widest">Kingdom</p>
@@ -167,6 +176,7 @@ const App: React.FC = () => {
                           <p className="text-xl font-bold text-emerald-700">{result.advancedInfo.conservationStatus}</p>
                        </div>
                     </div>
+
                     <div className="space-y-8">
                       <div className="p-8 bg-slate-50/50 rounded-[2.5rem] border border-slate-100">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Habitat & Range</h4>
@@ -175,6 +185,38 @@ const App: React.FC = () => {
                       <div className="p-8 bg-slate-50/50 rounded-[2.5rem] border border-slate-100">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Ecology & Conservation</h4>
                         <p className="text-lg text-slate-700 leading-relaxed">{result.advancedInfo.behavior}. {result.advancedInfo.conservationEfforts}</p>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Related Species Section */}
+                    <div className="pt-10">
+                      <h3 className="serif text-4xl text-slate-900 mb-8 italic">Phylogenetic Connections</h3>
+                      <div className="grid grid-cols-1 gap-6">
+                        {result.relatedSpecies && result.relatedSpecies.length > 0 ? (
+                          result.relatedSpecies.map((species, i) => (
+                            <div key={i} className="flex flex-col md:flex-row gap-6 p-8 rounded-[3rem] bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border tracking-widest ${getRelationColor(species.relationType)}`}>
+                                    {species.relationType}
+                                  </span>
+                                </div>
+                                <h4 className="text-2xl font-bold text-slate-900 mb-1 group-hover:text-emerald-700 transition-colors">{species.name}</h4>
+                                <p className="serif italic text-slate-400 mb-4 text-lg">{species.scientificName}</p>
+                                <p className="text-slate-600 text-sm leading-relaxed">{species.briefReason}</p>
+                              </div>
+                              <div className="flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-colors">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-slate-400 italic text-sm">No related species currently cataloged.</p>
+                        )}
                       </div>
                     </div>
                   </div>
